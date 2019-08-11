@@ -1,4 +1,4 @@
-package testcert
+package certs
 
 import (
 	"crypto/ecdsa"
@@ -31,7 +31,7 @@ func TestValidateConfig(t *testing.T) {
 
 func TestDefaults(t *testing.T) {
 	now := time.Now()
-	cert, key := TCert(t, Config{nowTime: now})
+	cert, key := TNew(t, Config{nowTime: now})
 
 	require.IsType(t, &rsa.PrivateKey{}, key)
 	assert.Equal(t, 2048, key.(*rsa.PrivateKey).Size()*8)
@@ -73,7 +73,7 @@ func TestStoreToFileDER(t *testing.T) {
 	certPath := path.Join(dir, "cert")
 	keyPath := path.Join(dir, "key")
 
-	cert, key := TCertDER(t, Config{KeyPath: keyPath, CertPath: certPath})
+	cert, key := TNewDER(t, Config{KeyPath: keyPath, CertPath: certPath})
 
 	certBytes, err := ioutil.ReadFile(certPath)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestStoreToFilePEM(t *testing.T) {
 	certPath := path.Join(dir, "cert")
 	keyPath := path.Join(dir, "key")
 
-	cert, key := TCert(t, Config{KeyPath: keyPath, CertPath: certPath})
+	cert, key := TNew(t, Config{KeyPath: keyPath, CertPath: certPath})
 
 	certBytes, err := ioutil.ReadFile(certPath)
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestStoreToFilePEM(t *testing.T) {
 }
 
 func TestNotUsingDefault(t *testing.T) {
-	caCert, caKey := TCert(t, Config{KeyType: ECDSA})
+	caCert, caKey := TNew(t, Config{KeyType: ECDSA})
 
 	now := time.Now()
 
@@ -144,7 +144,7 @@ func TestNotUsingDefault(t *testing.T) {
 		nowTime:      now,
 	}
 
-	cert, key, err := Cert(cfg)
+	cert, key, err := New(cfg)
 	require.NoError(t, err)
 
 	// Test key
@@ -171,8 +171,8 @@ func TestNotUsingDefault(t *testing.T) {
 }
 
 func TestRSASigningCert(t *testing.T) {
-	caCert, caKey := TCert(t)
-	cert, _ := TCert(t, Config{CACert: caCert, CAKey: caKey})
+	caCert, caKey := TNew(t)
+	cert, _ := TNew(t, Config{CACert: caCert, CAKey: caKey})
 	assert.Equal(t, x509.SHA256WithRSA, cert.SignatureAlgorithm)
 }
 
@@ -181,12 +181,12 @@ func TestBadConfig(t *testing.T) {
 		KeyType: KeyType(33),
 	}
 
-	_, _, err := Cert(badConfig)
+	_, _, err := New(badConfig)
 	assert.Error(t, err)
 }
 
 func TestTCertPEM(t *testing.T) {
-	c, k := TCertPEM(t)
+	c, k := TNewPEM(t)
 
 	certDer := pemDecode(t, c, pemCertType)
 	_, err := x509.ParseCertificate(certDer)
@@ -208,7 +208,7 @@ func TestECDSAToFile(t *testing.T) {
 	certPath := path.Join(dir, "cert")
 	keyPath := path.Join(dir, "key")
 
-	c, k := TCert(t, Config{KeyType: ECDSA, CertPath: certPath, KeyPath: keyPath})
+	c, k := TNew(t, Config{KeyType: ECDSA, CertPath: certPath, KeyPath: keyPath})
 
 	keyBytes, err := ioutil.ReadFile(keyPath)
 	certBytes, err := ioutil.ReadFile(certPath)
@@ -226,13 +226,13 @@ func TestECDSAToFile(t *testing.T) {
 }
 
 func TestECDSAKeyDER(t *testing.T) {
-	_, k := TCertDER(t, Config{KeyType: ECDSA})
+	_, k := TNewDER(t, Config{KeyType: ECDSA})
 	_, err := x509.ParseECPrivateKey(k)
 	require.NoError(t, err)
 }
 
 func TestNegativeSerial(t *testing.T) {
-	_, _, err := Cert(Config{SerialNumber: big.NewInt(-5)})
+	_, _, err := New(Config{SerialNumber: big.NewInt(-5)})
 	assert.Error(t, err)
 }
 

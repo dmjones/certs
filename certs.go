@@ -1,4 +1,5 @@
-package testcert
+// Package certs provides helpful methods for generating test certificates.
+package certs
 
 import (
 	"bytes"
@@ -25,11 +26,11 @@ import (
 type Config struct {
 
 	// CertPath specifies where to store the certificate. An empty string disables output. Files are PEM-encoded
-	// for Cert and CertPEM and DER-encoded for CertDER.
+	// for New and NewPEM and DER-encoded for NewDER.
 	CertPath string
 
 	// CertPath specifies where to store the key. An empty string disables output. Files are PEM-encoded
-	// for Cert and CertPEM and DER-encoded for CertDER. Key files are unencrypted.
+	// for New and NewPEM and DER-encoded for NewDER. Key files are unencrypted.
 	KeyPath string
 
 	// CACert specifies the CA certificate that signs the generated cert. Pass nil to create a self-signed
@@ -264,9 +265,9 @@ func getConfig(cfgs []Config) Config {
 	return Config{}
 }
 
-// Cert generates a certificate and private key. To override default values, pass
+// New generates a certificate and private key. To override default values, pass
 // a Config value.
-func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
+func New(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
 	cert, key, err := genCertAndKey(getConfig(cfg), true)
 	if err != nil {
 		return nil, nil, err
@@ -275,19 +276,19 @@ func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
 	return cert, key, nil
 }
 
-// TCert generates a certificate and private key. To override default values, pass
+// TNew generates a certificate and private key. To override default values, pass
 // a Config value. If an error occurs, t.Error is called.
-func TCert(t *testing.T, cfg ...Config) (*x509.Certificate, crypto.Signer) {
-	c, k, err := Cert(cfg...)
+func TNew(t *testing.T, cfg ...Config) (*x509.Certificate, crypto.Signer) {
+	c, k, err := New(cfg...)
 	if err != nil {
 		t.Error(err)
 	}
 	return c, k
 }
 
-// CertDER generates a certificate and private key in DER format. To override default values, pass
+// NewDER generates a certificate and private key in DER format. To override default values, pass
 // a Config value.
-func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
+func NewDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 	cert, signerKey, err := genCertAndKey(getConfig(cfg), false)
 	if err != nil {
 		return nil, nil, err
@@ -310,21 +311,21 @@ func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 	return
 }
 
-// TCertDER generates a certificate and private key in DER format. To override default values, pass
+// TNewDER generates a certificate and private key in DER format. To override default values, pass
 // a Config value. If an error occurs, t.Error is called.
-func TCertDER(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
-	c, k, err := CertDER(cfg...)
+func TNewDER(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
+	c, k, err := NewDER(cfg...)
 	if err != nil {
 		t.Error(err)
 	}
 	return c, k
 }
 
-// CertPEM generates a certificate and private key in PEM format. To override default values, pass
+// NewPEM generates a certificate and private key in PEM format. To override default values, pass
 // a Config value.
-func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
+func NewPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 
-	certBytes, keyBytes, err := CertDER(getConfig(cfg))
+	certBytes, keyBytes, err := NewDER(getConfig(cfg))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -342,10 +343,10 @@ func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 	return c, k, nil
 }
 
-// TCertPEM generates a certificate and private key in PEM format. To override default values, pass
+// TNewPEM generates a certificate and private key in PEM format. To override default values, pass
 // a Config value. If an error occurs, t.Error is called.
-func TCertPEM(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
-	c, k, err := CertPEM(cfg...)
+func TNewPEM(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
+	c, k, err := NewPEM(cfg...)
 	if err != nil {
 		t.Error(err)
 	}
