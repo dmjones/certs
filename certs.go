@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	rand2 "math/rand"
 	"strconv"
@@ -20,10 +21,12 @@ import (
 
 type Config struct {
 
-	// CertPath specifies where to store the certificate. An empty string disables output.
+	// CertPath specifies where to store the certificate. An empty string disables output. Files are PEM-encoded
+	// for Cert and CertPEM and DER-encoded for CertDER.
 	CertPath string
 
-	// CertPath specifies where to store the key. An empty string disables output.
+	// CertPath specifies where to store the key. An empty string disables output. Files are PEM-encoded
+	// for Cert and CertPEM and DER-encoded for CertDER. Key files are unencrypted.
 	KeyPath string
 
 	// CACert specifies the CA certificate that signs the generated cert. Pass nil to create a self-signed
@@ -58,6 +61,9 @@ type Config struct {
 	// Algorithm specifies the signature algorithm to use. If zero, SHA256WithRSA or ECDSAWithSHA256 is used
 	// (according to the issuing key type).
 	Algorithm x509.SignatureAlgorithm
+
+	// nowTime is used by tests
+	nowTime time.Time
 }
 
 type KeyType int
@@ -69,7 +75,17 @@ const (
 
 var maxSerial = big.NewInt(100000)
 
-func cert(cfg Config) ([]byte, crypto.Signer, error) {
+const (
+	pemCertType = "CERTIFICATE"
+	pemKeyType  = "PRIVATE KEY"
+
+	coreKeyUsage = x509.KeyUsageDataEncipherment |
+		x509.KeyUsageDigitalSignature |
+		x509.KeyUsageKeyEncipherment |
+		x509.KeyUsageKeyAgreement
+)
+
+func genCertAndKey(cfg Config, pem bool) (*x509.Certificate, crypto.Signer, error) {
 
 	err := validateConfig(cfg)
 	if err != nil {
@@ -126,18 +142,19 @@ func cert(cfg Config) ([]byte, crypto.Signer, error) {
 		dn = &pkix.Name{CommonName: strconv.Itoa(rand2.Int())}
 	}
 
-	expiry := cfg.Expiry
-	if expiry.IsZero() {
-		expiry = time.Now().AddDate(1, 0, 0)
+	now := cfg.nowTime
+	if now.IsZero() {
+		now = time.Now()
 	}
 
-	usage := x509.KeyUsageDataEncipherment |
-		x509.KeyUsageDigitalSignature |
-		x509.KeyUsageKeyEncipherment |
-		x509.KeyUsageKeyAgreement
+	expiry := cfg.Expiry
+	if expiry.IsZero() {
+		expiry = now.AddDate(1, 0, 0)
+	}
 
+	certUsage := coreKeyUsage
 	if cfg.IsCA {
-		usage = usage | x509.KeyUsageCertSign
+		certUsage = coreKeyUsage | x509.KeyUsageCertSign
 	}
 
 	algorithm := cfg.Algorithm
@@ -158,8 +175,8 @@ func cert(cfg Config) ([]byte, crypto.Signer, error) {
 		IsCA:         cfg.IsCA,
 
 		// Things we set ourselves
-		NotBefore:             time.Now(),
-		KeyUsage:              usage,
+		NotBefore:             now,
+		KeyUsage:              certUsage,
 		BasicConstraintsValid: true,
 		SignatureAlgorithm:    algorithm,
 	}
@@ -181,30 +198,79 @@ func cert(cfg Config) ([]byte, crypto.Signer, error) {
 		return nil, nil, wrapError(err, "failed to generate certificate")
 	}
 
-	return certBytes, subjectKey, nil
-}
-
-func Cert(cfg Config) (*x509.Certificate, crypto.Signer, error) {
-	certBytes, key, err := cert(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	c, err := x509.ParseCertificate(certBytes)
+	cert, err := x509.ParseCertificate(certBytes)
 	if err != nil {
 		return nil, nil, wrapError(err, "failed to generate certificate")
 	}
 
-	return c, key, nil
+	if cfg.CertPath != "" {
+		var outBytes []byte
+		if pem {
+			outBytes, err = pemEncodeCert(certBytes)
+			if err != nil {
+				return nil, nil, wrapError(err, "failed to encode certificate")
+			}
+		} else {
+			outBytes = certBytes
+		}
+
+		err = ioutil.WriteFile(cfg.CertPath, outBytes, 0644)
+		if err != nil {
+			return nil, nil, wrapError(err, "failed to write certificate")
+		}
+	}
+	if cfg.KeyPath != "" {
+		var keyBytes []byte
+
+		switch cfg.KeyType {
+		case RSA:
+			keyBytes = x509.MarshalPKCS1PrivateKey(subjectKey.(*rsa.PrivateKey))
+		case ECDSA:
+			keyBytes, err = x509.MarshalECPrivateKey(subjectKey.(*ecdsa.PrivateKey))
+			if err != nil {
+				return nil, nil, wrapError(err, "failed to encode key")
+			}
+		}
+
+		if pem {
+			keyBytes, err = pemEncodeKey(keyBytes)
+			if err != nil {
+				return nil, nil, wrapError(err, "failed to encode certificate")
+			}
+		}
+
+		err = ioutil.WriteFile(cfg.KeyPath, keyBytes, 0644)
+		if err != nil {
+			return nil, nil, wrapError(err, "failed to write key")
+		}
+	}
+
+	return cert, subjectKey, nil
 }
 
-func CertDER(cfg Config) (certificate []byte, key []byte, err error) {
-	var signerKey crypto.Signer
+func getConfig(cfgs []Config) Config {
+	if len(cfgs) > 0 {
+		return cfgs[0]
+	}
+	return Config{}
+}
 
-	certificate, signerKey, err = cert(cfg)
+func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
+	cert, key, err := genCertAndKey(getConfig(cfg), true)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	return cert, key, nil
+}
+
+func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
+	cert, signerKey, err := genCertAndKey(getConfig(cfg), false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certificate = cert.Raw
 
 	switch k := signerKey.(type) {
 	case *rsa.PrivateKey:
@@ -220,35 +286,47 @@ func CertDER(cfg Config) (certificate []byte, key []byte, err error) {
 	return
 }
 
-func CertPEM(cfg Config) (certificate []byte, key []byte, err error) {
-	certBytes, keyBytes, err := CertDER(cfg)
+func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
+
+	certBytes, keyBytes, err := CertDER(getConfig(cfg))
 	if err != nil {
 		return nil, nil, err
 	}
 
+	c, err := pemEncodeCert(certBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k, err := pemEncodeKey(keyBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return c, k, nil
+}
+
+func pemEncodeCert(certBytes []byte) ([]byte, error) {
+	return pemEncode(certBytes, pemCertType)
+}
+
+func pemEncodeKey(keyBytes []byte) ([]byte, error) {
+	return pemEncode(keyBytes, pemKeyType)
+}
+
+func pemEncode(obj []byte, pemType string) ([]byte, error) {
 	block := &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
+		Type:  pemType,
+		Bytes: obj,
 	}
 
 	b := new(bytes.Buffer)
 
-	if err = pem.Encode(b, block); err != nil {
-		return nil, nil, err
+	if err := pem.Encode(b, block); err != nil {
+		return nil, err
 	}
 
-	certificate = b.Bytes()
-
-	b.Reset()
-	block.Type = "PRIVATE KEY"
-	block.Bytes = keyBytes
-
-	if err = pem.Encode(b, block); err != nil {
-		return nil, nil, err
-	}
-
-	key = b.Bytes()
-	return
+	return b.Bytes(), nil
 }
 
 func validateConfig(cfg Config) error {
