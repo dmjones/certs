@@ -16,6 +16,7 @@ import (
 	"math/big"
 	rand2 "math/rand"
 	"strconv"
+	"testing"
 	"time"
 )
 
@@ -83,6 +84,8 @@ const (
 		x509.KeyUsageDigitalSignature |
 		x509.KeyUsageKeyEncipherment |
 		x509.KeyUsageKeyAgreement
+
+	caKeyUsage = coreKeyUsage | x509.KeyUsageCertSign
 )
 
 func genCertAndKey(cfg Config, pem bool) (*x509.Certificate, crypto.Signer, error) {
@@ -154,7 +157,7 @@ func genCertAndKey(cfg Config, pem bool) (*x509.Certificate, crypto.Signer, erro
 
 	certUsage := coreKeyUsage
 	if cfg.IsCA {
-		certUsage = coreKeyUsage | x509.KeyUsageCertSign
+		certUsage = caKeyUsage
 	}
 
 	algorithm := cfg.Algorithm
@@ -264,6 +267,14 @@ func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
 	return cert, key, nil
 }
 
+func TCert(t *testing.T, cfg ...Config) (*x509.Certificate, crypto.Signer) {
+	c, k, err := Cert(cfg...)
+	if err != nil {
+		t.Error(err)
+	}
+	return c, k
+}
+
 func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 	cert, signerKey, err := genCertAndKey(getConfig(cfg), false)
 	if err != nil {
@@ -286,6 +297,14 @@ func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 	return
 }
 
+func TCertDER(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
+	c, k, err := CertDER(cfg...)
+	if err != nil {
+		t.Error(err)
+	}
+	return c, k
+}
+
 func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 
 	certBytes, keyBytes, err := CertDER(getConfig(cfg))
@@ -304,6 +323,14 @@ func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 	}
 
 	return c, k, nil
+}
+
+func TCertPEM(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
+	c, k, err := CertPEM(cfg...)
+	if err != nil {
+		t.Error(err)
+	}
+	return c, k
 }
 
 func pemEncodeCert(certBytes []byte) ([]byte, error) {
