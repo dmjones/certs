@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+// Config can be provided to override the default values. The default values used are equivalent
+// to a zero Config value (e.g. Config{}).
 type Config struct {
 
 	// CertPath specifies where to store the certificate. An empty string disables output. Files are PEM-encoded
@@ -67,6 +69,7 @@ type Config struct {
 	nowTime time.Time
 }
 
+// KeyType defines the type of key to generate.
 type KeyType int
 
 const (
@@ -227,7 +230,10 @@ func genCertAndKey(cfg Config, pem bool) (*x509.Certificate, crypto.Signer, erro
 
 		switch cfg.KeyType {
 		case RSA:
-			keyBytes = x509.MarshalPKCS1PrivateKey(subjectKey.(*rsa.PrivateKey))
+			keyBytes, err = x509.MarshalPKCS8PrivateKey(subjectKey.(*rsa.PrivateKey))
+			if err != nil {
+				return nil, nil, wrapError(err, "failed to encode key")
+			}
 		case ECDSA:
 			keyBytes, err = x509.MarshalECPrivateKey(subjectKey.(*ecdsa.PrivateKey))
 			if err != nil {
@@ -258,6 +264,8 @@ func getConfig(cfgs []Config) Config {
 	return Config{}
 }
 
+// Cert generates a certificate and private key. To override default values, pass
+// a Config value.
 func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
 	cert, key, err := genCertAndKey(getConfig(cfg), true)
 	if err != nil {
@@ -267,6 +275,8 @@ func Cert(cfg ...Config) (*x509.Certificate, crypto.Signer, error) {
 	return cert, key, nil
 }
 
+// TCert generates a certificate and private key. To override default values, pass
+// a Config value. If an error occurs, t.Error is called.
 func TCert(t *testing.T, cfg ...Config) (*x509.Certificate, crypto.Signer) {
 	c, k, err := Cert(cfg...)
 	if err != nil {
@@ -275,6 +285,8 @@ func TCert(t *testing.T, cfg ...Config) (*x509.Certificate, crypto.Signer) {
 	return c, k
 }
 
+// CertDER generates a certificate and private key in DER format. To override default values, pass
+// a Config value.
 func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 	cert, signerKey, err := genCertAndKey(getConfig(cfg), false)
 	if err != nil {
@@ -285,18 +297,21 @@ func CertDER(cfg ...Config) (certificate []byte, key []byte, err error) {
 
 	switch k := signerKey.(type) {
 	case *rsa.PrivateKey:
-		key = x509.MarshalPKCS1PrivateKey(k)
+		key, err = x509.MarshalPKCS8PrivateKey(k)
 
 	case *ecdsa.PrivateKey:
 		key, err = x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return nil, nil, err
-		}
+	}
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return
 }
 
+// TCertDER generates a certificate and private key in DER format. To override default values, pass
+// a Config value. If an error occurs, t.Error is called.
 func TCertDER(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
 	c, k, err := CertDER(cfg...)
 	if err != nil {
@@ -305,6 +320,8 @@ func TCertDER(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
 	return c, k
 }
 
+// CertPEM generates a certificate and private key in PEM format. To override default values, pass
+// a Config value.
 func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 
 	certBytes, keyBytes, err := CertDER(getConfig(cfg))
@@ -325,6 +342,8 @@ func CertPEM(cfg ...Config) (certificate []byte, key []byte, err error) {
 	return c, k, nil
 }
 
+// TCertPEM generates a certificate and private key in PEM format. To override default values, pass
+// a Config value. If an error occurs, t.Error is called.
 func TCertPEM(t *testing.T, cfg ...Config) (certificate []byte, key []byte) {
 	c, k, err := CertPEM(cfg...)
 	if err != nil {

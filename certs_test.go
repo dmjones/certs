@@ -108,7 +108,9 @@ func TestStoreToFilePEM(t *testing.T) {
 	assert.Equal(t, cert.Raw, certDer)
 
 	keyDer := pemDecode(t, keyBytes, pemKeyType)
-	assert.Equal(t, x509.MarshalPKCS1PrivateKey(key.(*rsa.PrivateKey)), keyDer)
+	expectedKey, err := x509.MarshalPKCS8PrivateKey(key.(*rsa.PrivateKey))
+	require.NoError(t, err)
+	assert.Equal(t, expectedKey, keyDer)
 }
 
 func TestNotUsingDefault(t *testing.T) {
@@ -191,7 +193,7 @@ func TestTCertPEM(t *testing.T) {
 	assert.NoError(t, err)
 
 	keyDer := pemDecode(t, k, pemKeyType)
-	_, err = x509.ParsePKCS1PrivateKey(keyDer)
+	_, err = x509.ParsePKCS8PrivateKey(keyDer)
 	assert.NoError(t, err)
 }
 
