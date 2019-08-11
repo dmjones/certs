@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/dmjones/certs?status.svg)](https://godoc.org/github.com/dmjones/certs)
+
 Generate test certificates for Go programs.
 
 ## Basic Usage
@@ -24,7 +26,8 @@ These certificate will have default properties, including:
 - Random serial number
 - Random Common Name (all other DN fields blank)
 
-See the docs for the `Config` class for more details.
+These properties can be overriden. See examples below, or 
+the docs for the `Config` class for more details.
 
 ### Avoid the error check
 

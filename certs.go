@@ -25,45 +25,53 @@ import (
 // to a zero Config value (e.g. Config{}).
 type Config struct {
 
-	// CertPath specifies where to store the certificate. An empty string disables output. Files are PEM-encoded
-	// for New and NewPEM and DER-encoded for NewDER.
+	// CertPath specifies where to store the certificate. An empty string
+	// disables output. Files are PEM-encoded for New and NewPEM and DER-encoded
+	// for NewDER.
 	CertPath string
 
-	// CertPath specifies where to store the key. An empty string disables output. Files are PEM-encoded
-	// for New and NewPEM and DER-encoded for NewDER. Key files are unencrypted.
+	// CertPath specifies where to store the key. An empty string disables
+	// output. Files are PEM-encoded for New and NewPEM and DER-encoded for
+	// NewDER. Key files are unencrypted.
 	KeyPath string
 
-	// CACert specifies the CA certificate that signs the generated cert. Pass nil to create a self-signed
-	// certificate.
+	// CACert specifies the CA certificate that signs the generated cert. Pass
+	// nil to create a self-signed certificate.
 	CACert *x509.Certificate
 
-	// CAKey specifies the CA key that signs the generated cert. Pass nil to create a self-signed
-	// certificate.
+	// CAKey specifies the CA key that signs the generated cert. Pass nil to
+	// create a self-signed certificate.
 	CAKey crypto.Signer
 
-	// DN is the distinguished name of the certificate. If nil, a DN is generated of the form 'CN=<random number>'.
+	// DN is the distinguished name of the certificate. If nil, a DN is
+	// generated of the form 'CN=<random number>'.
 	DN *pkix.Name
 
-	// Expiry is the expiry time of the certificate. If zero, the expiry is set one year in the future.
+	// Expiry is the expiry time of the certificate. If zero, the expiry is set
+	// one year in the future.
 	Expiry time.Time
 
-	// SerialNumber specifies the certificate serial. If nil, a random SerialNumber is generated.
+	// SerialNumber specifies the certificate serial. If nil, a random
+	// SerialNumber is generated.
 	SerialNumber *big.Int
 
 	// KeyType indicates the type of key to generate.
 	KeyType KeyType
 
-	// KeySize indicates the size of the key to generate for RSA keys. If zero, RSA keys will be 2048 bits long.
+	// KeySize indicates the size of the key to generate for RSA keys. If zero,
+	// RSA keys will be 2048 bits long.
 	RSAKeySize int
 
-	// Curve indicates the type of ECDSA key to generate. If nil, a P256 curve is used.
+	// Curve indicates the type of ECDSA key to generate. If nil, a P256 curve
+	// is used.
 	Curve elliptic.Curve
 
 	// IsCA indicates whether to set CA flags on the certificate.
 	IsCA bool
 
-	// Algorithm specifies the signature algorithm to use. If zero, SHA256WithRSA or ECDSAWithSHA256 is used
-	// (according to the issuing key type).
+	// Algorithm specifies the signature algorithm to use. If zero,
+	// SHA256WithRSA or ECDSAWithSHA256 is used (according to the issuing key
+	// type).
 	Algorithm x509.SignatureAlgorithm
 
 	// nowTime is used by tests
